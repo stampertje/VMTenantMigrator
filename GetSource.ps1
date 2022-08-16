@@ -2,6 +2,11 @@
 
 [CmdletBinding()]
 param (
+    # Temporary dir on local computer
+    [Parameter(Mandatory=$true)]
+    [string]
+    $tempdir,
+
     # can be either GUID or name.onmicrosoft.com
     [Parameter(Mandatory=$true)]
     [string]
@@ -32,7 +37,7 @@ param (
     $InAutomationAccount
 )
 
-if (!(test-path c:\temp)){mkdir c:\temp}
+if (!(test-path $tempdir)){mkdir $tempdir}
 
 If ($InAutomationAccount)
 {
@@ -93,7 +98,7 @@ Foreach ($vm in $VMtoMigrate)
   Set-AzStorageBlobContent `
     -Context $storageContext `
     -Container $ContainerName `
-    -File C:\temp\$vmname.xml `
+    -File $tempdir\$vmname.xml `
     -Blob $vmname.xml `
     -force
 
