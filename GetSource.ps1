@@ -172,18 +172,22 @@ Foreach ($vm in $VMtoMigrate)
   }
 
   # clone disk to storage account
-  $osdisk = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.osdisk.name
+
   if (-not($nodisk))
   {
+    #$osdisk = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.osdisk.name
+    $osdisk = $vm.StorageProfile.osdisk
     $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $osdisk.name -Access Read -DurationInSecond (60*60*24)
     Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $osdisk.name -DestinationContext $storageContext
   }
 
-  $datadisks = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.$datadisks
+
   if (-not($nodisk))
   {
+    $datadisks =  $vm.StorageProfile.datadisks
     Foreach ($disk in $datadisks)
     {
+      #get-azdisk -ResourceGroupName $vm.ResourceGroupName -name
       $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name -Access Read -DurationInSecond (60*60*24)
       Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $disk.name -DestinationContext $storageContext
     }

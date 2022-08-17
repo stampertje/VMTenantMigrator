@@ -3,12 +3,12 @@ param (
     # location for migrator VM
     [Parameter(Mandatory=$true)]
     [string]
-    $location = "westeurope",
+    $location,
 
     # domain name or guid for target tenant
     [Parameter(Mandatory=$true)]
     [string]
-    $TargetTenant = "fdpo.onmicrosoft.com",
+    $TargetTenant,
 
     # guid of the target subscription. If not specified will search. end script if > 1 found.
     [Parameter()]
