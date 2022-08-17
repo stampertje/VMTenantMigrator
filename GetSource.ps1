@@ -41,7 +41,12 @@ param (
     # Used to skip disk upload (used for script testing)
     [Parameter()]
     [switch]
-    $nodisk
+    $nodisk,
+
+    # Exports virtual network configurations
+    [Parameter()]
+    [switch]
+    $ExportVnets
 )
 
 if (!(test-path $tempdir)){mkdir $tempdir}
@@ -98,6 +103,23 @@ if($connectionstring){$storageContext = New-AzStorageContext -ConnectionString $
 if($UseCurrentAccount){$StorageContext = New-AzStorageContext -StorageAccountName $TargetStorageAccountName -UseConnectedAccount}
 $ContainerName = "vmbackup"
 New-AzStorageContainer -Name $ContainerName -Context $storageContext -Permission Blob -ErrorAction SilentlyContinue
+
+If($ExportVnets)
+{
+  Foreach ($vnet in (Get-AzVirtualNetwork))
+  {
+    $vnetname = $vnet.name
+    $vnet | Export-Clixml $tempdir\$vnetname.xml -Depth 5
+
+    # copy xml to storage account
+    Set-AzStorageBlobContent `
+      -Context $storageContext `
+      -Container $ContainerName `
+      -File $tempdir\$vnetname.xml `
+      -Blob $vnetname.xml `
+      -force
+  }
+}
 
 if ($MigrateSingleVM)
 {
