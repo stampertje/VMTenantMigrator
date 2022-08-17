@@ -71,11 +71,17 @@ if ((get-azcontext).subscription.id -ne $SourceSubscription)
             throw $_.Exception
         }
     }
-
   } else {
-    
-    Login-AzAccount -Tenant $SourceTenant
-
+    If ($NULL -eq (get-azcontext))
+    {
+      Login-AzAccount -Tenant $SourceTenant
+    } Else {
+      $response = Read-Host -message "Continue as " (get-azcontext).account " Y/N"
+      If ($response -ieq "n")
+      {
+        Login-AzAccount -Tenant $SourceTenant
+      }
+    }
   }
 
   Select-AzSubscription -SubscriptionId $SourceSubscription
@@ -86,7 +92,7 @@ if ((get-azcontext).subscription.id -ne $SourceSubscription)
 if($connectionstring){$storageContext = New-AzStorageContext -ConnectionString $ConnectionString}
 if($UseCurrentAccount){$StorageContext = New-AzStorageContext -StorageAccountName $TargetStorageAccountName -UseConnectedAccount}
 $ContainerName = "vmbackup"
-New-AzStorageContainer -Name $ContainerName -Context $storageContext -Permission Blob
+New-AzStorageContainer -Name $ContainerName -Context $storageContext -Permission Blob -ErrorAction SilentlyContinue
 
 if ($MigrateSingleVM)
 {
@@ -100,13 +106,26 @@ Foreach ($vm in $VMtoMigrate)
   $vmname = $vm.Name
   Get-AzVM -ResourceGroupName $vm.ResourceGroupName -Name $vmName | Export-Clixml $tempdir\$vmname.xml -Depth 5
 
-  # copy xml to storage account
-  Set-AzStorageBlobContent `
-    -Context $storageContext `
-    -Container $ContainerName `
-    -File $tempdir\$vmname.xml `
-    -Blob $vmname.xml `
-    -force
+  # Get disk config
+  $vmosdisk = $vmname + '_disks' # Name of the XML file
+  Get-AzDisk -ResourceGroupName $vm.ResourceGroupName | Where-Object {$_.name -like "*$vmname*"} | Export-Clixml $tempdir\$vmosdisk.xml -Depth 5
+
+  # Get NIC Config
+  $vmnic = $vmname + '_nic' # Name of the XML file
+  $vmnicName = $vm.networkprofile.NetworkInterfaces.id.split("/")[$vm.networkprofile.NetworkInterfaces.id.split("/").length-1]
+  Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName -Name $vmnicName | Export-Clixml $tempdir\$vmnic.xml -Depth 5
+
+  $fileArray = $vmname,$vmosdisk,$vmnic
+  Foreach ($file in $fileArray)
+  {
+    # copy xml to storage account
+    Set-AzStorageBlobContent `
+      -Context $storageContext `
+      -Container $ContainerName `
+      -File $tempdir\$file.xml `
+      -Blob $file.xml `
+      -force
+  }
 
   # shutdown vm if running
   $vmstatus = $vm.status
@@ -120,7 +139,7 @@ Foreach ($vm in $VMtoMigrate)
   $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $osdisk.name -Access Read -DurationInSecond (60*60*24)
   Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $osdisk.name -DestinationContext $storageContext
   
-  $osdisk = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.$datadisks
+  $datadisks = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.$datadisks
   Foreach ($disk in $datadisks)
   {
     $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name -Access Read -DurationInSecond (60*60*24)
