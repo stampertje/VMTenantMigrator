@@ -129,11 +129,10 @@ If ($CreateVNet)
   If (-not(Get-AzVirtualNetwork -Name $vnetconfig.Name -ResourceGroupName $vnetconfig.ResourceGroupName -ErrorAction SilentlyContinue))
   {
       Write-host "Creating vnet" -ForegroundColor Green
-
-      $vnet = New-AzVirtualNetwork -Name $vnetconfig.Name `
+      
+      $vnet = New-AzVirtualNetwork -Name $vnetconfig.Name -Location $newrg.Location `
         -ResourceGroupName $newrg.ResourceGroupName `
-        -AddressPrefix $vnetconfig.addressspace.AddressPrefixes ` # will prolly not work with multiple
-        -Location $newrg.location
+        -AddressPrefix $vnetconfig.addressspace.AddressPrefixes  # will prolly not work with multiple
 
       Foreach ($subnet in $vnetconfig.Subnets)
       {
@@ -145,7 +144,14 @@ If ($CreateVNet)
 
       if($NULL -ne $vnetconfig.DhcpOptions.DnsServers)
       {
-        $vnet.DhcpOptions.DnsServers = $vnetconfig.DhcpOptions.DnsServers
+        Foreach ($ip in $vnetconfig.DhcpOptions.DnsServers)
+        {
+          $vnet.DhcpOptions.DnsServers += $ip
+        }
+        #$vnet.DhcpOptions.DnsServers = $vnetconfig.DhcpOptions.DnsServers -join ","
+        #$dnsservers = $vnetconfig.DhcpOptions.DnsServers
+        #$newObject = New-Object -type PSObject -Property @{"DnsServers" = $dnsservers}
+        #$vnet.DhcpOptions = $newObject
       }
 
       $vnet | Set-AzVirtualNetwork
