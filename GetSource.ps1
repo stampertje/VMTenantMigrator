@@ -1,4 +1,4 @@
-#Requires -module Az.Compute, Az.Accounts, Az.Storage, Az.Resources
+#Requires -module Az.Compute, Az.Accounts, Az.Storage, Az.Resources, Az.Network
 # Stole code from here https://www.whatsupgold.com/blog/how-to-rename-an-azure-vm-using-powershell-a-step-by-step-guide
 
 [CmdletBinding()]
@@ -33,10 +33,15 @@ param (
     [string]
     $MigrateSingleVM,
 
-    # Defines if automation credentials should be used or 
+    # Defines if automation credentials should be used
     [Parameter()]
     [boolean]
-    $InAutomationAccount=$false
+    $InAutomationAccount=$false,
+
+    # Used to skip disk upload (used for script testing)
+    [Parameter()]
+    [switch]
+    $nodisk
 )
 
 if (!(test-path $tempdir)){mkdir $tempdir}
@@ -103,6 +108,9 @@ if ($MigrateSingleVM)
 
 Foreach ($vm in $VMtoMigrate)
 {
+
+  $fileArray = $vmname,$vmdisk,$vmnic
+
   $vmname = $vm.Name
   Get-AzVM -ResourceGroupName $vm.ResourceGroupName -Name $vmName | Export-Clixml $tempdir\$vmname.xml -Depth 5
 
@@ -113,9 +121,17 @@ Foreach ($vm in $VMtoMigrate)
   # Get NIC Config
   $vmnic = $vmname + '_nic' # Name of the XML file
   $vmnicName = $vm.networkprofile.NetworkInterfaces.id.split("/")[$vm.networkprofile.NetworkInterfaces.id.split("/").length-1]
-  Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName -Name $vmnicName | Export-Clixml $tempdir\$vmnic.xml -Depth 5
+  $interface = Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName -Name $vmnicName
+  $interface | Export-Clixml $tempdir\$vmnic.xml -Depth 5
 
-  $fileArray = $vmname,$vmdisk,$vmnic
+  # Get-NSG
+  if ($NULL -ne $interface.NetworkSecurityGroup.Id)
+  {
+    $nsgname = $interface.NetworkSecurityGroup.Id.split("/")[$interface.NetworkSecurityGroup.Id.split("/").count-1]
+    Get-AzNetworkSecurityGroup -Name $nsgname -ResourceGroupName $vm.ResourceGroupName | Export-Clixml $tempdir\$nsgname.xml -Depth 5
+    $fileArray = $vmname,$vmdisk,$vmnic,$nsgname
+  }
+  
   Foreach ($file in $fileArray)
   {
     # copy xml to storage account
@@ -136,17 +152,23 @@ Foreach ($vm in $VMtoMigrate)
 
   # clone disk to storage account
   $osdisk = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.osdisk.name
-  $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $osdisk.name -Access Read -DurationInSecond (60*60*24)
-  Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $osdisk.name -DestinationContext $storageContext
-  
-  $datadisks = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.$datadisks
-  Foreach ($disk in $datadisks)
+  if (-not($nodisk))
   {
-    $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name -Access Read -DurationInSecond (60*60*24)
-    Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $disk.name -DestinationContext $storageContext
+    $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $osdisk.name -Access Read -DurationInSecond (60*60*24)
+    Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $osdisk.name -DestinationContext $storageContext
   }
 
-  If ($vmstatus -ieq "Running")
+  $datadisks = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.$datadisks
+  if (-not($nodisk))
+  {
+    Foreach ($disk in $datadisks)
+    {
+      $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name -Access Read -DurationInSecond (60*60*24)
+      Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $disk.name -DestinationContext $storageContext
+    }
+  }
+
+  If ($vmstatus -ieq "Running") # returning vm to original state
   {
     Start-AzVm -Name $vm.name -ResourceGroupName $vm.ResourceGroupName
   }
