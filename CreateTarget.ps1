@@ -148,10 +148,6 @@ If ($CreateVNet)
         {
           $vnet.DhcpOptions.DnsServers += $ip
         }
-        #$vnet.DhcpOptions.DnsServers = $vnetconfig.DhcpOptions.DnsServers -join ","
-        #$dnsservers = $vnetconfig.DhcpOptions.DnsServers
-        #$newObject = New-Object -type PSObject -Property @{"DnsServers" = $dnsservers}
-        #$vnet.DhcpOptions = $newObject
       }
 
       $vnet | Set-AzVirtualNetwork
