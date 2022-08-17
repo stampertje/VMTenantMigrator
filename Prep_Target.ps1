@@ -23,27 +23,66 @@ param (
     # Name of the migrator vm
     [Parameter()]
     [string]
-    $migvmname = "migratorvm"
+    $migvmname
     
 )
 
 
-# Connect target tenant and select subscription
-Login-AzAccount -Tenant $TargetTenant
-
-If (-not($targetsubscription))
+if ((get-azcontext).subscription.id -ne $TargetSubscription)
 {
-  $targetsubscription = Get-azsubscription -TenantId $TargetTenant
-  if ($targetsubscription.count -gt 1){Write-Error -Message "More than 1 subscription. quiting." -ErrorAction Stop}
-  Select-AzSubscription -SubscriptionId $targetsubscription.id
-} else {
-  Select-AzSubscription -SubscriptionId $targetsubscription
+  If ($InAutomationAccount -eq $true)
+  {
+
+    $connectionName = "AzureRunAsConnection";
+  
+    try
+    {
+        # Get the connection "AzureRunAsConnection "
+        $servicePrincipalConnection = Get-AutomationConnection -Name $connectionName        
+    
+        "Logging in to Azure..."
+        Add-AzAccount `
+            -ServicePrincipal `
+            -TenantId $servicePrincipalConnection.TenantId `
+            -ApplicationId $servicePrincipalConnection.ApplicationId `
+            -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint 
+    }
+    catch {
+    
+        if (!$servicePrincipalConnection)
+        {
+            $ErrorMessage = "Connection $connectionName not found."
+            throw $ErrorMessage
+        } else{
+            Write-Error -Message $_.Exception
+            throw $_.Exception
+        }
+    }
+
+  } else {
+    
+    If ($NULL -eq (get-azcontext))
+    {
+      Login-AzAccount -Tenant $SourceTenant
+    } Else {
+      $response = Read-Host "Continue as " (get-azcontext).account " Y/N"
+      If ($response -ieq "n")
+      {
+        Login-AzAccount -Tenant $SourceTenant
+      }
+    }
+
+  }
+
+  Select-AzSubscription -SubscriptionId $TargetSubscription
 }
 
 New-AzResourceGroup -Name $rgname -Location $location
 
-# Create Migrator VM
-New-AzVm `
+If ($migvmname)
+{
+  # Create Migrator VM
+  New-AzVm `
     -ResourceGroupName $rgname `
     -Name $migvmname `
     -Location $location `
@@ -53,6 +92,7 @@ New-AzVm `
     -SecurityGroupName 'mignsg' `
     -PublicIpAddressName 'migpip' `
     -OpenPorts 3389
+}
 
 # Create Storage account
 $saname = "mig" + (new-guid).ToString().replace("-","").substring(0,16)
