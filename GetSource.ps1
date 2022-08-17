@@ -1,5 +1,4 @@
 #Requires -module Az.Compute, Az.Accounts, Az.Storage, Az.Resources, Az.Network
-# Stole code from here https://www.whatsupgold.com/blog/how-to-rename-an-azure-vm-using-powershell-a-step-by-step-guide
 
 [CmdletBinding()]
 param (
