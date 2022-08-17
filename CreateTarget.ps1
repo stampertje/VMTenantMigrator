@@ -38,6 +38,17 @@ param (
     $CreateVNet
 )
 
+# Get AzCopy
+If ($azcopy)
+{
+  # Will execute in current dir
+  Invoke-WebRequest -Uri "https://aka.ms/downloadazcopy-v10-windows" -OutFile AzCopy.zip -UseBasicParsing
+  Expand-Archive ./AzCopy.zip ./AzCopy -Force
+  Get-ChildItem ./AzCopy/*/azcopy.exe | Move-Item -Destination .
+  Remove-Item ./AzCopy -recurse
+  Remove-Item ./AzCopy.Zip
+}
+
 if ((get-azcontext).subscription.id -ne $TargetSubscription)
 {
   If ($InAutomationAccount -eq $true)
@@ -159,35 +170,76 @@ If ($CreateVNet)
   }
 }
 
-IF ($MigrateVM)
+if ($MigrateVM)
 {
   # Build vm config from old tenant
-  $vmconfig = Get-AzStorageBlob -Container $ContainerName -Blob $MigrateVM.xml -Context $storageContext | Import-Clixml
+  #$vmconfig = Get-AzStorageBlob -Container $ContainerName -Blob $MigrateVM.xml -Context $storageContext | Import-Clixml
+  $vmdisk = $MigrateVM + '_disks' # Name of the XML file
+  $vmnic = $MigrateVM + '_nic' # Name of the XML file
+  
+  $files = $MigrateVM,$vmdisk,$vmnic
+
+  Try{
+    Foreach ($file in $files)
+    {
+      $file = $file + ".xml"
+      Get-AzStorageBlobContent `
+        -Container $ContainerName `
+        -Blob $file `
+        -Context $storageContext `
+        -Destination $env:TEMP -Force
+    }
+
+    $vmconfig = Import-Clixml $env:temp\$MigrateVM.xml
+    $diskConfig = Import-Clixml $env:temp\$vmdisk.xml
+    $nicconfig = Import-Clixml $env:temp\$vmnic.xml
+
+  } catch {
+    'Failed reading config files' | Write-Error -ErrorAction Stop
+    throw
+  }
 
   # Create Resource Group
-  $newrg = New-AzResourceGroup -Name $vmconfig.ResourceGroupName -Location $vmconfig.location
-
-  $vmdisk = $MigrateVM + '_disks' # Name of the XML file
-  #$vmdiskName = $vmconfig.storageprofile.osdisk.name
-  $diskConfig = Get-AzStorageBlob -Container $ContainerName -Blob $vmdisk.xml -Context $storageContext | Import-Clixml
-
-  $vmnic = $MigrateVM + '_nic' # Name of the XML file
-  $vmnicName = $vm.networkprofile.NetworkInterfaces.id.split("/")[$vm.networkprofile.NetworkInterfaces.id.split("/").length-1]
-  $nicconfig = Get-AzStorageBlob -Container $ContainerName -Blob $vmnic.xml -Context $storageContext | Import-Clixml
+  if (-not(Get-AzResourceGroup -name $vmconfig.ResourceGroupName -ErrorAction SilentlyContinue))
+  {
+    $newrg = New-AzResourceGroup -Name $vmconfig.ResourceGroupName -Location $vmconfig.location
+  } else {
+    $newrg = Get-AzResourceGroup -name $vmconfig.ResourceGroupName
+  }
 
   Foreach($disk in $diskConfig)
   {
-    # Create Managed disk from vhd in storage acoount
+    
     $storageType = $disk.sku.name
-    $sourceVHDURI = 'https://' + $targetStorage.StorageAccountName + '.blob.core.windows.net/' + $ContainerName + '/' + $disk.name
-    #$storageAccountId = $targetStorage.Id
+    #$sourceVHDURI = $StorageContext.blobendpoint + $ContainerName + '/' + $disk.name
+    <#$newdiskConfig = New-AzDiskConfig -AccountType $storageType `
+      -Location $disk.location `
+      -CreateOption Import `
+      -StorageAccountId $StorageContext.Id `
+      -SourceUri $sourceVHDURI `
+      -DiskSizeGB $disk.DiskSizeGB
+    #>
+
+    $disksizebytes = $disk.disksizebytes + 512
+
     $newdiskConfig = New-AzDiskConfig -AccountType $storageType `
-            -Location $disk.location `
-            -CreateOption Import `
-            #-StorageAccountId $storageAccountId `
-            -SourceUri $sourceVHDURI `
-            -DiskSizeGB $disk.DiskSizeGB
-    New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.name -DiskName $disk.name
+      -Location $disk.location `
+      -CreateOption upload `
+      -OsType $disk.ostype.value `
+      -UploadSizeInBytes $disksizebytes 
+      
+    New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.ResourceGroupName `
+      -DiskName $disk.name
+
+    $diskblob = Get-AzStorageBlob `
+      -Container $ContainerName `
+      -Blob $disk.name `
+      -Context $storageContext
+
+    $diskSas = Grant-AzDiskAccess -ResourceGroupName $newrg.ResourceGroupName `
+      -DiskName $disk.name -DurationInSecond 86400 -Access 'Write'
+    Start-AzStorageBlobCopy -SrcBlob $diskblob -AbsoluteUri $disksas.AccessSAS
+    Revoke-AzDiskAccess -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
     
     $datadisks = @()
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
@@ -202,15 +254,16 @@ IF ($MigrateVM)
   # Check if the virtual network exists
   $vnetName = $nicconfig.ipconfigurations[0].subnet.id.split("/")[$nicconfig.ipconfigurations[0].subnet.id.split("/").count-3]
   $SubnetName = $nicconfig.ipconfigurations[0].subnet.id.split("/")[$nicconfig.ipconfigurations[0].subnet.id.split("/").count-1]
-  
+  $vmnicName = $vmconfig.networkprofile.NetworkInterfaces.id.split("/")[$vmconfig.networkprofile.NetworkInterfaces.id.split("/").length-1]
+
   # Create network interface
   $IPconfig = New-AzNetworkInterfaceIpConfig -Name "IPConfig1" `
-  -PrivateIpAddressVersion IPv4 `
-  -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
-  -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id
+    -PrivateIpAddressVersion IPv4 `
+    -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
+    -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id
 
   $nic = New-AzNetworkInterface -Name $vmnicName `
-    -ResourceGroupName $newrg.name `
+    -ResourceGroupName $newrg.ResourceGroupName `
     -Location $newrg.Location `
     -IpConfiguration $IPconfig
 
@@ -236,6 +289,6 @@ IF ($MigrateVM)
       -CreateOption Attach
   }
 
-  New-AzVM -VM $newVM -ResourceGroupName $newrg.Name -Location $newrg.Location
+  New-AzVM -VM $newVM -ResourceGroupName $newrg.ResourceGroupName -Location $newrg.Location
 
 }
