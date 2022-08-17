@@ -107,15 +107,15 @@ Foreach ($vm in $VMtoMigrate)
   Get-AzVM -ResourceGroupName $vm.ResourceGroupName -Name $vmName | Export-Clixml $tempdir\$vmname.xml -Depth 5
 
   # Get disk config
-  $vmosdisk = $vmname + '_disks' # Name of the XML file
-  Get-AzDisk -ResourceGroupName $vm.ResourceGroupName | Where-Object {$_.name -like "*$vmname*"} | Export-Clixml $tempdir\$vmosdisk.xml -Depth 5
+  $vmdisk = $vmname + '_disks' # Name of the XML file
+  Get-AzDisk -ResourceGroupName $vm.ResourceGroupName | Where-Object {$_.name -like "*$vmname*"} | Export-Clixml $tempdir\$vmdisk.xml -Depth 5
 
   # Get NIC Config
   $vmnic = $vmname + '_nic' # Name of the XML file
   $vmnicName = $vm.networkprofile.NetworkInterfaces.id.split("/")[$vm.networkprofile.NetworkInterfaces.id.split("/").length-1]
   Get-AzNetworkInterface -ResourceGroupName $vm.ResourceGroupName -Name $vmnicName | Export-Clixml $tempdir\$vmnic.xml -Depth 5
 
-  $fileArray = $vmname,$vmosdisk,$vmnic
+  $fileArray = $vmname,$vmdisk,$vmnic
   Foreach ($file in $fileArray)
   {
     # copy xml to storage account
