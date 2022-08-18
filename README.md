@@ -80,6 +80,6 @@ The script has two run-modes:
 
 **Example creating VM**
 
-  >.\CreateTarget.ps1 -TargetTenant "fdpo.onmicrosoft.com" -TargetSubscription "3ea6e547-4e4f-45e3-94d3-267df1ab6e82" -ConnectionString $connectionstring -MigrateVM "esae-dc01"
+  >.\CreateTarget.ps1 -TargetTenant "fdpo.onmicrosoft.com" -TargetSubscription "3ea6e547-4e4f-45e3-94d3-267df1ab6e82" -ConnectionString $connectionstring -MigrateVM "flab01srv03"
 
-  
+[<img src="./images/createvm.png" width="650"/>](create_vm)
