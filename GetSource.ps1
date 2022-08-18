@@ -177,8 +177,9 @@ Foreach ($vm in $VMtoMigrate)
   {
     #$osdisk = get-azdisk -ResourceGroupName $vm.ResourceGroupName -name $vm.StorageProfile.osdisk.name
     $osdisk = $vm.StorageProfile.osdisk
+    $blobname = $osdisk.name + ".vhd"
     $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $osdisk.name -Access Read -DurationInSecond (60*60*24)
-    Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $osdisk.name -DestinationContext $storageContext
+    Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $blobname -DestinationContext $storageContext
   }
 
 
@@ -188,8 +189,9 @@ Foreach ($vm in $VMtoMigrate)
     Foreach ($disk in $datadisks)
     {
       #get-azdisk -ResourceGroupName $vm.ResourceGroupName -name
+      $blobname = $disk.name + ".vhd"
       $sas = Grant-AzDiskAccess -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name -Access Read -DurationInSecond (60*60*24)
-      Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $disk.name -DestinationContext $storageContext
+      Start-AzStorageBlobCopy -AbsoluteUri $sas.AccessSAS -DestinationContainer $ContainerName -DestinationBlob $blobname -DestinationContext $storageContext
     }
   }
 

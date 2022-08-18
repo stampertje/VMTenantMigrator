@@ -207,11 +207,14 @@ if ($MigrateVM)
     $newrg = Get-AzResourceGroup -name $vmconfig.ResourceGroupName
   }
 
+$storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
+  Where-object {$_.ResourceType -eq "Microsoft.Storage/storageAccounts"}).ResourceID
+
   Foreach($disk in $diskConfig)
   {
     
     $storageType = $disk.sku.name
-    #$sourceVHDURI = $StorageContext.blobendpoint + $ContainerName + '/' + $disk.name
+    $sourceVHDURI = $StorageContext.blobendpoint + $ContainerName + '/' + $disk.name
     <#$newdiskConfig = New-AzDiskConfig -AccountType $storageType `
       -Location $disk.location `
       -CreateOption Import `
@@ -224,13 +227,17 @@ if ($MigrateVM)
 
     $newdiskConfig = New-AzDiskConfig -AccountType $storageType `
       -Location $disk.location `
-      -CreateOption upload `
+      -CreateOption import `
       -OsType $disk.ostype.value `
-      -UploadSizeInBytes $disksizebytes 
-      
+      -DiskSizeGB 128 `
+      -SourceUri $sourceVHDURI `
+      -StorageAccountId $storageAccountID
+      #-UploadSizeInBytes $disksizebytes 
+
     New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.ResourceGroupName `
       -DiskName $disk.name
 
+    <#
     $diskblob = Get-AzStorageBlob `
       -Container $ContainerName `
       -Blob $disk.name `
@@ -240,6 +247,7 @@ if ($MigrateVM)
       -DiskName $disk.name -DurationInSecond 86400 -Access 'Write'
     Start-AzStorageBlobCopy -SrcBlob $diskblob -AbsoluteUri $disksas.AccessSAS
     Revoke-AzDiskAccess -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
+    #>
     
     $datadisks = @()
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
