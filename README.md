@@ -34,7 +34,21 @@ This script is used to create the supporting objects in the target enviroment:
 
 .\Prep_Target.ps1 -TargetTenant fdpo.onmicrosoft.com -targetsubscription "3ea6e547-4e4f-45e3-94d3-267df1ab6e82" -location westeurope
 
-[<img src="./images/preptarget.png" width="350"/>](preptarget)
+[<img src="./images/preptarget.png" width="650"/>](preptarget)
 
 ### getsource.ps1
 
+Script to export objects to storage account in the target subscription. The disks will go from Azure to Azure so thats pretty fast.
+
+Script has several runmodes:
+- MigrateSingleVM : By default the script will export all VMs. You can use migratesinglevm with the value of the vm name to migrate a single vm.
+- nodisk : Will skip the disk upload. Used this for debugging because I got tired of the overwrite notifications.
+- ExportVnets : Will export all Vnets in the source subscription.
+
+.\GetSource.ps1 -tempdir <Temp_folder_for_XMLFiles> -sourcetenant <Tenant_Name> -sourcesubscription <Subscription_GUID> -connectionstring <StorageAccount_ConnectionString> [-nodisk] [-ExportVnets]
+
+Provide the connectionstring found in the Access Keys section of the storage account. I usually put that in a separate variable.
+
+**Example**
+
+[<img src="./images/getsource.png" width="650"/>](getsource)
