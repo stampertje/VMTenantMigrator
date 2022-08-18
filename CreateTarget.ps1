@@ -210,7 +210,8 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
       -StorageAccountId $storageAccountID `
       -SourceUri $sourceVHDURI `
       -DiskSizeGB $disk.DiskSizeGB `
-      -OsType $disk.ostype.value
+      -OsType $disk.ostype.value `
+      -HyperVGeneration $disk.HyperVGeneration
 
     $newdisk = New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
 
