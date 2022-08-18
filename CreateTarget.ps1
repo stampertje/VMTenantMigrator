@@ -38,17 +38,6 @@ param (
     $CreateVNet
 )
 
-# Get AzCopy
-If ($azcopy)
-{
-  # Will execute in current dir
-  Invoke-WebRequest -Uri "https://aka.ms/downloadazcopy-v10-windows" -OutFile AzCopy.zip -UseBasicParsing
-  Expand-Archive ./AzCopy.zip ./AzCopy -Force
-  Get-ChildItem ./AzCopy/*/azcopy.exe | Move-Item -Destination .
-  Remove-Item ./AzCopy -recurse
-  Remove-Item ./AzCopy.Zip
-}
-
 if ((get-azcontext).subscription.id -ne $TargetSubscription)
 {
   If ($InAutomationAccount -eq $true)
@@ -173,7 +162,6 @@ If ($CreateVNet)
 if ($MigrateVM)
 {
   # Build vm config from old tenant
-  #$vmconfig = Get-AzStorageBlob -Container $ContainerName -Blob $MigrateVM.xml -Context $storageContext | Import-Clixml
   $vmdisk = $MigrateVM + '_disks' # Name of the XML file
   $vmnic = $MigrateVM + '_nic' # Name of the XML file
   
@@ -212,49 +200,26 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
 
   Foreach($disk in $diskConfig)
   {
-    
     $storageType = $disk.sku.name
-    $sourceVHDURI = $StorageContext.blobendpoint + $ContainerName + '/' + $disk.name
-    <#$newdiskConfig = New-AzDiskConfig -AccountType $storageType `
-      -Location $disk.location `
-      -CreateOption Import `
-      -StorageAccountId $StorageContext.Id `
-      -SourceUri $sourceVHDURI `
-      -DiskSizeGB $disk.DiskSizeGB
-    #>
 
-    #$disksizebytes = $disk.disksizebytes + 512
-
+    $blobname = $disk.name + ".vhd"
+    $sourceVHDURI = $StorageContext.blobendpoint + $ContainerName + '/' + $blobname
     $newdiskConfig = New-AzDiskConfig -AccountType $storageType `
       -Location $disk.location `
-      -CreateOption import `
-      -OsType $disk.ostype.value `
-      -DiskSizeGB 128 `
+      -CreateOption Import `
+      -StorageAccountId $storageAccountID `
       -SourceUri $sourceVHDURI `
-      -StorageAccountId $storageAccountID
-      #-UploadSizeInBytes $disksizebytes 
+      -DiskSizeGB $disk.DiskSizeGB `
+      -OsType $disk.ostype.value
 
-    New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.ResourceGroupName `
-      -DiskName $disk.name
-
-    <#
-    $diskblob = Get-AzStorageBlob `
-      -Container $ContainerName `
-      -Blob $disk.name `
-      -Context $storageContext
-
-    $diskSas = Grant-AzDiskAccess -ResourceGroupName $newrg.ResourceGroupName `
-      -DiskName $disk.name -DurationInSecond 86400 -Access 'Write'
-    Start-AzStorageBlobCopy -SrcBlob $diskblob -AbsoluteUri $disksas.AccessSAS
-    Revoke-AzDiskAccess -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
-    #>
+    $newdisk = New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
 
     $datadisks = @()
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
     {
-      $osdiskid = $disk.id
+      $osdiskid = $newdisk.id
     } else {
-      $datadisks += $disk
+      $datadisks += $newdisk
     }
   }
 
@@ -285,7 +250,6 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
     -Name $vmconfig.StorageProfile.OsDisk.Name `
     -Windows
 
-  #$vmconfig.StorageProfile.DataDisks | ForEach-Object 
   Foreach ($ddisk in $datadisks)
   {
     Add-AzVMDataDisk -VM $newVM `
