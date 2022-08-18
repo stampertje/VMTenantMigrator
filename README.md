@@ -13,7 +13,7 @@ The first step is to export all the config to XML files in a storage account in 
 
 The second step is to recreate the objects in the target tenant.
 
-[<img src="./images/overview.png" width="350"/>](arch_overview)
+[<img src="./images/overview.png" width="550"/>](arch_overview)
 
 The solution has three scripts:
 - Prep_Target.ps1 : Creates a storage account and optionally a VM to run the migration scripts.
