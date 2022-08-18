@@ -223,7 +223,7 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
       -DiskSizeGB $disk.DiskSizeGB
     #>
 
-    $disksizebytes = $disk.disksizebytes + 512
+    #$disksizebytes = $disk.disksizebytes + 512
 
     $newdiskConfig = New-AzDiskConfig -AccountType $storageType `
       -Location $disk.location `
@@ -248,7 +248,7 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
     Start-AzStorageBlobCopy -SrcBlob $diskblob -AbsoluteUri $disksas.AccessSAS
     Revoke-AzDiskAccess -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
     #>
-    
+
     $datadisks = @()
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
     {
