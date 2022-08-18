@@ -57,10 +57,6 @@ Provide the connectionstring found in the Access Keys section of the storage acc
 
 [<img src="./images/getsource.png" width="650"/>](getsource)
 
-It can take some time for the copy to complete in the background. You can see if the copy is completed through the portal.
-
-[<img src="./images/copypending.png" width="650"/>](copypending)
-
 ## Createtarget.ps1
 
 This script will create the resources in the target environment. It currently only supports migrating 1 vm per run. But you can build a wrapper around it (foreach) to process a list of VMs.
