@@ -204,13 +204,7 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
 
     $blobname = $disk.name + ".vhd"
     
-    $blobstate = get-AzStorageBlobCopyState -Blob $blobname -Context $storageContext -Container $ContainerName
-
-    Do 
-    {
-      $blobstate = get-AzStorageBlobCopyState -Blob $blobname -Context $storageContext -Container $ContainerName
-      Start-Sleep -Seconds 30
-    } while ($blobstate.status -ne "Success")
+    $blobstate = get-AzStorageBlobCopyState -Blob $blobname -Context $storageContext -Container $ContainerName -WaitForComplete
 
     $sourceVHDURI = $StorageContext.blobendpoint + $ContainerName + '/' + $blobname
     $newdiskConfig = New-AzDiskConfig -AccountType $storageType `
