@@ -166,8 +166,8 @@ Foreach ($vm in $VMtoMigrate)
   }
 
   # shutdown vm if running
-  $vmstatus = $vm.status
-  if($vmstatus -ieq "Running")
+  $vmstatus = (Get-AzVM -Name $vm.Name -Status).Powerstate
+  if($vmstatus -ilike "*Running*")
   {
     Stop-AzVM -name $vm.name -ResourceGroupName $vm.ResourceGroupName -Force
   }
