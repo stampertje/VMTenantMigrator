@@ -130,9 +130,8 @@ if ($MigrateSingleVM)
 Foreach ($vm in $VMtoMigrate)
 {
 
-  $fileArray = $vmname,$vmdisk,$vmnic
-
   $vmname = $vm.Name
+  
   Get-AzVM -ResourceGroupName $vm.ResourceGroupName -Name $vmName | Export-Clixml $tempdir\$vmname.xml -Depth 5
 
   # Get disk config
@@ -152,6 +151,8 @@ Foreach ($vm in $VMtoMigrate)
     Get-AzNetworkSecurityGroup -Name $nsgname -ResourceGroupName $vm.ResourceGroupName | Export-Clixml $tempdir\$nsgname.xml -Depth 5
     $fileArray = $vmname,$vmdisk,$vmnic,$nsgname
   }
+
+  $fileArray = $vmname,$vmdisk,$vmnic
   
   Foreach ($file in $fileArray)
   {
