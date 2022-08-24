@@ -1,3 +1,5 @@
+#requires -module Az.Compute, Az.Accounts, Az.Storage, Az.Resources, Az.Network
+
 [CmdletBinding()]
 param (
     # location for migrator VM
