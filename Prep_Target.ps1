@@ -44,10 +44,10 @@ if ((get-azcontext).subscription.id -ne $TargetSubscription)
     
         "Logging in to Azure..."
         Add-AzAccount `
-            -ServicePrincipal `
-            -TenantId $servicePrincipalConnection.TenantId `
-            -ApplicationId $servicePrincipalConnection.ApplicationId `
-            -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint 
+          -ServicePrincipal `
+          -TenantId $servicePrincipalConnection.TenantId `
+          -ApplicationId $servicePrincipalConnection.ApplicationId `
+          -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint 
     }
     catch {
     
@@ -86,15 +86,15 @@ If ($migvmname)
   try {
     # Create Migrator VM
     New-AzVm `
-    -ResourceGroupName $rgname `
-    -Name $migvmname `
-    -Location $location `
-    -size "Standard_D2_v5" `
-    -VirtualNetworkName 'migvnet' `
-    -SubnetName 'migsubnet' `
-    -SecurityGroupName 'mignsg' `
-    -PublicIpAddressName 'migpip' `
-    -OpenPorts 3389
+      -ResourceGroupName $rgname `
+      -Name $migvmname `
+      -Location $location `
+      -size "Standard_D2_v5" `
+      -VirtualNetworkName 'migvnet' `
+      -SubnetName 'migsubnet' `
+      -SecurityGroupName 'mignsg' `
+      -PublicIpAddressName 'migpip' `
+      -OpenPorts 3389
   }
   catch {
     'Could not create migrator VM: ' -f $_.Exception.Message | Write-Error
