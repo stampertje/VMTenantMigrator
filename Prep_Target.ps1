@@ -81,8 +81,9 @@ New-AzResourceGroup -Name $rgname -Location $location
 
 If ($migvmname)
 {
-  # Create Migrator VM
-  New-AzVm `
+  try {
+    # Create Migrator VM
+    New-AzVm `
     -ResourceGroupName $rgname `
     -Name $migvmname `
     -Location $location `
@@ -92,14 +93,26 @@ If ($migvmname)
     -SecurityGroupName 'mignsg' `
     -PublicIpAddressName 'migpip' `
     -OpenPorts 3389
+  }
+  catch {
+    'Could not create migrator VM: ' -f $_.Exception.Message | Write-Error
+    throw
+  }
+
 }
 
-# Create Storage account
-$saname = "mig" + (new-guid).ToString().replace("-","").substring(0,16)
-New-AzStorageAccount -ResourceGroupName $rgname `
-  -Name $saname `
-  -Location $location `
-  -SkuName Standard_RAGRS `
-  -Kind StorageV2
+Try
+{
+  # Create Storage account
+  $saname = "mig" + (new-guid).ToString().replace("-","").substring(0,16)
+  New-AzStorageAccount -ResourceGroupName $rgname `
+    -Name $saname `
+    -Location $location `
+    -SkuName Standard_RAGRS `
+    -Kind StorageV2
 
-Write-host "Storage account created: " $saname -ForegroundColor Green
+  Write-host "Storage account created: " $saname -ForegroundColor Green
+} catch {
+  'Could not create storage account: ' -f $_.Exception.Message | Write-Error
+  throw
+}
