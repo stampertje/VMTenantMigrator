@@ -12,8 +12,8 @@ param (
     [string]
     $TargetTenant,
 
-    # guid of the target subscription. If not specified will search. end script if > 1 found.
-    [Parameter()]
+    # guid of the target subscription
+    [Parameter(Mandatory=$true)]
     [string]
     $targetsubscription,
 
