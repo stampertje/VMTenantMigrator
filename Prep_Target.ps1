@@ -84,6 +84,18 @@ if ((get-azcontext).subscription.id -ne $TargetSubscription)
   } 
 }
 
+
+# Enable resource providers if not enabled.
+$ProviderList = "Microsoft.Compute", "Microsoft.Storage", "Microsoft.Network"
+Foreach ($provider in $ProviderList)
+{
+  If ((Get-AzResourceProvider -ProviderNamespace $provider).RegistrationState -ne "Registered")
+  {
+    Register-AzResourceProvider -ProviderNamespace $Provider
+  } 
+}
+
+
 New-AzResourceGroup -Name $rgname -Location $location
 
 If ($migvmname)
