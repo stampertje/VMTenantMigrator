@@ -161,6 +161,7 @@ If ($CreateVNet)
 
 if ($MigrateVM)
 {
+  $linux = $false
   # Build vm config from old tenant
   $vmdisk = $MigrateVM + '_disks' # Name of the XML file
   $vmnic = $MigrateVM + '_nic' # Name of the XML file
@@ -195,7 +196,7 @@ if ($MigrateVM)
     $newrg = Get-AzResourceGroup -name $vmconfig.ResourceGroupName
   }
 
-$storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
+  $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
   Where-object {$_.ResourceType -eq "Microsoft.Storage/storageAccounts"}).ResourceID
 
   Foreach($disk in $diskConfig)
@@ -217,7 +218,7 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
       -HyperVGeneration $disk.HyperVGeneration
 
     $newdisk = New-AzDisk -Disk $newdiskConfig -ResourceGroupName $newrg.ResourceGroupName -DiskName $disk.name
-
+  
     $datadisks = @()
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
     {
