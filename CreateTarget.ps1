@@ -222,6 +222,7 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
     {
       $osdiskid = $newdisk.id
+      if($disk.ostype.value -eq "Linux"){$linux=$true}
     } else {
       $datadisks += $newdisk
     }
@@ -265,6 +266,11 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
       -CreateOption Attach
   }
 
-  New-AzVM -VM $newVM -ResourceGroupName $newrg.ResourceGroupName -Location $newrg.Location
+  if ($linux -eq $true)
+  {
+    New-AzVM -VM $newVM -ResourceGroupName $newrg.ResourceGroupName -Location $newrg.Location -Linux
+  } else {
+    New-AzVM -VM $newVM -ResourceGroupName $newrg.ResourceGroupName -Location $newrg.Location
+  }
 
 }
