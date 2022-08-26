@@ -65,18 +65,23 @@ if ((get-azcontext).subscription.id -ne $TargetSubscription)
     
     If ($NULL -eq (get-azcontext))
     {
-      Login-AzAccount -Tenant $SourceTenant
+      Login-AzAccount -Tenant $TargetTenant
     } Else {
       $response = Read-Host "Continue as " (get-azcontext).account " Y/N"
       If ($response -ieq "n")
       {
-        Login-AzAccount -Tenant $SourceTenant
+        Login-AzAccount -Tenant $TargetTenant
       }
     }
 
   }
 
-  Select-AzSubscription -SubscriptionId $TargetSubscription
+  try {
+    Select-AzSubscription -SubscriptionId $TargetSubscription 
+  } catch {
+    Write-Error -Message $_.Exception -ErrorAction Stop
+    throw $_.Exception
+  } 
 }
 
 New-AzResourceGroup -Name $rgname -Location $location
