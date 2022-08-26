@@ -73,12 +73,12 @@ if ((get-azcontext).subscription.id -ne $TargetSubscription)
     
     If ($NULL -eq (get-azcontext))
     {
-      Login-AzAccount -Tenant $SourceTenant
+      Login-AzAccount -Tenant $TargetTenant
     } Else {
       $response = Read-Host "Continue as " (get-azcontext).account " Y/N"
       If ($response -ieq "n")
       {
-        Login-AzAccount -Tenant $SourceTenant
+        Login-AzAccount -Tenant $TargetTenant
       }
     }
 
