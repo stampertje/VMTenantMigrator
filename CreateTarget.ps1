@@ -234,26 +234,23 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
   $SubnetName = $nicconfig.ipconfigurations[0].subnet.id.split("/")[$nicconfig.ipconfigurations[0].subnet.id.split("/").count-1]
   $vmnicName = $vmconfig.networkprofile.NetworkInterfaces.id.split("/")[$vmconfig.networkprofile.NetworkInterfaces.id.split("/").length-1]
 
+  $IPConfigProperties = @{
+    name = "IPConfig1"
+    PrivateIpAddressVersion = IPv4
+    PrivateIpAddress = $nicconfig.ipconfigurations[0].privateipaddress
+    SubnetId = ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id
+  }
+
   # Create network interface
   if ($NULL -ne $nicconfig.IpConfigurations.PublicIpAddress)
   {
     #with public ip
     $pipname = $nicconfig.IpConfigurations.PublicIpAddress.Id.split("/")[$nicconfig.IpConfigurations.PublicIpAddress.Id.split("/").count-1]
     $newpip = New-AzPublicIpAddress -Name $pipname -ResourceGroupName $newrg.ResourceGroupName -AllocationMethod Dynamic -Location $newrg.Location
-    
-    $IPconfig = New-AzNetworkInterfaceIpConfig -Name "IPConfig1" `
-      -PrivateIpAddressVersion IPv4 `
-      -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
-      -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id `
-      -PublicIpAddressId $newpip.Id
-
-  } else {
-    #without public ip
-    $IPconfig = New-AzNetworkInterfaceIpConfig -Name "IPConfig1" `
-      -PrivateIpAddressVersion IPv4 `
-      -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
-      -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id
+    $IPConfigProperties += @{PublicIpAddressId = $newpip.Id}
   }
+
+  $IPconfig = New-AzNetworkInterfaceIpConfig @IPConfigProperties
 
   $nic = New-AzNetworkInterface -Name $vmnicName `
     -ResourceGroupName $newrg.ResourceGroupName `
