@@ -222,6 +222,7 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
     If ($disk.name -eq $vmconfig.storageprofile.osdisk.name)
     {
       $osdiskid = $newdisk.id
+      $ostype = $disk.ostype.value
     } else {
       $datadisks += $newdisk
     }
@@ -234,10 +235,25 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
   $vmnicName = $vmconfig.networkprofile.NetworkInterfaces.id.split("/")[$vmconfig.networkprofile.NetworkInterfaces.id.split("/").length-1]
 
   # Create network interface
-  $IPconfig = New-AzNetworkInterfaceIpConfig -Name "IPConfig1" `
-    -PrivateIpAddressVersion IPv4 `
-    -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
-    -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id
+  if ($NULL -ne $nicconfig.IpConfigurations.PublicIpAddress)
+  {
+    #with public ip
+    $pipname = $nicconfig.IpConfigurations.PublicIpAddress.Id.split("/")[$nicconfig.IpConfigurations.PublicIpAddress.Id.split("/").count-1]
+    $newpip = New-AzPublicIpAddress -Name $pipname -ResourceGroupName $newrg.ResourceGroupName -AllocationMethod Dynamic -Location $newrg.Location
+    
+    $IPconfig = New-AzNetworkInterfaceIpConfig -Name "IPConfig1" `
+      -PrivateIpAddressVersion IPv4 `
+      -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
+      -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id `
+      -PublicIpAddressId $newpip.Id
+
+  } else {
+    #without public ip
+    $IPconfig = New-AzNetworkInterfaceIpConfig -Name "IPConfig1" `
+      -PrivateIpAddressVersion IPv4 `
+      -PrivateIpAddress $nicconfig.ipconfigurations[0].privateipaddress `
+      -SubnetId ((Get-AzVirtualNetwork -name $vnetname).Subnets | Where-Object {$_.Name -eq $SubnetName}).id
+  }
 
   $nic = New-AzNetworkInterface -Name $vmnicName `
     -ResourceGroupName $newrg.ResourceGroupName `
@@ -248,11 +264,23 @@ $storageAccountID = (Get-AzResource -name $storagecontext.StorageAccountName | `
   $newVM = New-AzVMConfig -VMName $MigrateVM -VMSize $vmconfig.HardwareProfile.VmSize -Tags $vmconfig.Tags
   $newVM = Add-AzVMNetworkInterface -VM $newVM -Id $nic.Id
 
-  Set-AzVMOSDisk -VM $newVM `
-    -CreateOption Attach `
-    -ManagedDiskId $osdiskid `
-    -Name $vmconfig.StorageProfile.OsDisk.Name `
-    -Windows
+  if ($ostype -ieq "Windows")
+  {
+    Set-AzVMOSDisk -VM $newVM `
+      -CreateOption Attach `
+      -ManagedDiskId $osdiskid `
+      -Name $vmconfig.StorageProfile.OsDisk.Name `
+      -Windows
+  }
+
+  if ($ostype -ieq "Linux")
+  {
+    Set-AzVMOSDisk -VM $newVM `
+      -CreateOption Attach `
+      -ManagedDiskId $osdiskid `
+      -Name $vmconfig.StorageProfile.OsDisk.Name `
+      -Linux
+  }
 
   Foreach ($ddisk in $datadisks)
   {
